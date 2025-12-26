@@ -1,0 +1,10 @@
+{
+    "name": "FireworksMissileVisualDisabler",
+    "version_number": "1.0.0",
+    "website_url": "https://github.com/yourusername/FireworksMissileVisualDisabler",
+    "description": "禁用烟花和导弹的视觉效果（粒子、模型等），但保留完整的伤害和游戏机制。显著提升性能，减少卡顿。",
+    "dependencies": [
+        "bbepis-BepInExPack-5.4.2113",
+        "RiskofThunder-HookGenPatcher-1.2.3"
+    ]
+}
