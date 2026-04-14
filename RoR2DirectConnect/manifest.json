@@ -1,0 +1,9 @@
+{
+    "name": "RoR2DirectConnect",
+    "version_number": "2.0.0",
+    "website_url": "https://github.com/Cindy-Master/Risk-of-Rain-2-mods-cindy_master",
+    "description": "IP Direct Connect for Risk of Rain 2. Bypass Steam networking and connect to servers by IP address. Supports IPv4/IPv6, custom display names, and native UI integration.",
+    "dependencies": [
+        "bbepis-BepInExPack-5.4.2113"
+    ]
+}
