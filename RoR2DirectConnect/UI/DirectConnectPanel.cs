@@ -235,11 +235,11 @@ namespace RoR2DirectConnect.UI
         private void DoConnect()
         {
             if (!NetworkManagerSystem.singleton)
-            { SetStatus("NetworkManager not ready.", Color.red); return; }
+            { SetStatus("NetworkManager not ready.", Color.red); EnsurePanelVisible(); return; }
 
             string addr = _joinAddressInput?.text?.Trim() ?? "";
             if (string.IsNullOrEmpty(addr))
-            { SetStatus("Enter an address!", Color.red); return; }
+            { SetStatus("Enter an address!", Color.red); EnsurePanelVisible(); return; }
 
             Plugin.DirectConnectActive = true;
             SaveNickname(_joinNicknameInput);
@@ -264,14 +264,51 @@ namespace RoR2DirectConnect.UI
 
             AddressPortPair pair;
             if (!AddressPortPair.TryParse(cs, out pair) || !pair.isValid)
-            { SetStatus($"Invalid address: {cs}", Color.red); Plugin.DirectConnectActive = false; return; }
+            { SetStatus($"Invalid address: {cs}", Color.red); Plugin.DirectConnectActive = false; EnsurePanelVisible(); return; }
 
             NetworkManagerSystem.singleton.desiredHost = new HostDescription(pair);
             Plugin.Log.LogInfo($"Connecting to {pair.address}:{pair.port}...");
 
-            // Dismiss panel — EnsureDesiredHost will call StartClient() next frame.
-            // Scene syncs automatically on successful connection.
             MenuInjector.DismissPanel(menuController);
+            Plugin.Instance.StartCoroutine(WaitForConnectionOrRestore(pair));
+        }
+
+        private IEnumerator WaitForConnectionOrRestore(AddressPortPair pair)
+        {
+            float t = 0f;
+            while (t < 10f)
+            {
+                // Client connected and scene is loading/loaded
+                if (NetworkClient.active && NetworkClient.allClients.Count > 0)
+                {
+                    var client = NetworkClient.allClients[0];
+                    if (client != null && client.isConnected)
+                    {
+                        Plugin.Log.LogInfo($"Connected to {pair.address}:{pair.port}");
+                        yield break;
+                    }
+                }
+
+                // desiredHost was reset (connection aborted by game)
+                if (NetworkManagerSystem.singleton != null
+                    && NetworkManagerSystem.singleton.desiredHost.hostType == HostDescription.HostType.None)
+                {
+                    break;
+                }
+
+                t += Time.deltaTime;
+                yield return null;
+            }
+
+            // Connection failed
+            Plugin.Log.LogError($"Connection to {pair.address}:{pair.port} failed (timeout 10s).");
+            Plugin.DirectConnectActive = false;
+            Patches.CreateLobbyPatch.CleanupFakeLobbyState();
+
+            if (menuController != null)
+                MenuInjector.ShowPanel(menuController);
+
+            SetStatus($"Connection failed: {pair.address}:{pair.port}", Color.red);
         }
 
         private void SaveNickname(TMP_InputField nicknameInput)
@@ -287,6 +324,12 @@ namespace RoR2DirectConnect.UI
         {
             if (_statusLabel != null) { _statusLabel.text = msg; _statusLabel.color = c; }
             Plugin.Log.LogInfo($"[Panel] {msg}");
+        }
+
+        private void EnsurePanelVisible()
+        {
+            if (menuController != null)
+                MenuInjector.ShowPanel(menuController);
         }
 
         private static void SetConVar(string n, string v)

@@ -4,51 +4,42 @@ using RoR2;
 namespace RoR2DirectConnect.Patches
 {
     /// <summary>
-    /// Overrides GetNetworkPlayerName for the local player to inject
-    /// the display name from config.
-    ///
-    /// MUST be a Prefix returning a complete NetworkPlayerName, NOT a Postfix
-    /// that modifies nameOverride alone. Reason: when nameOverride is set and
-    /// playerId is default(PlatformID), NetworkPlayerName.Serialize crashes
-    /// because default(PlatformID).stringID is null.
-    ///
-    /// By constructing a full struct with PlatformID(ulong) as playerId,
-    /// serialization works correctly (stringID = "" not null).
+    /// For local player only: override nameOverride with the freshest
+    /// config value (user may change nickname between sessions).
+    /// Remote players get their name from auth → NetworkUserId.strValue
+    /// → GetNetworkPlayerName().nameOverride automatically.
     /// </summary>
     [HarmonyPatch(typeof(NetworkUser), nameof(NetworkUser.GetNetworkPlayerName))]
     public static class DisplayNamePatch
     {
-        static bool Prefix(NetworkUser __instance, ref NetworkPlayerName __result)
+        static void Postfix(NetworkUser __instance, ref NetworkPlayerName __result)
         {
             if (!Plugin.DirectConnectActive)
-                return true;
+                return;
 
-            string displayName = Plugin.ConfigDisplayName.Value;
-            if (string.IsNullOrEmpty(displayName))
-                return true;
-
-            // Build a complete, serialization-safe NetworkPlayerName.
-            // PlatformID(ulong) constructor sets stringID = "" (not null),
-            // so Serialize won't NullRef.
-            ulong idVal = 0UL;
-            try { idVal = (ulong)__instance.id.value; } catch { }
-            if (idVal == 0UL)
+            if (__instance.isLocalPlayer)
             {
-                ulong.TryParse(Plugin.ConfigPlatformId.Value, out idVal);
+                string localName = Plugin.ConfigDisplayName.Value;
+                if (!string.IsNullOrEmpty(localName))
+                    __result.nameOverride = localName;
             }
 
-            __result = new NetworkPlayerName
+            // Safety: if nameOverride is set, ensure playerId is serialization-safe.
+            // Original code returns playerId = default(PlatformID) for string-mode IDs,
+            // whose stringID = null. PlatformID(0UL) has stringID = "" → safe.
+            if (__result.nameOverride != null)
             {
-                nameOverride = displayName,
-                playerId = new PlatformID(idVal)
-            };
-            return false;
+                __result = new NetworkPlayerName
+                {
+                    nameOverride = __result.nameOverride,
+                    playerId = new PlatformID(0UL)
+                };
+            }
         }
     }
 
     /// <summary>
-    /// Patches GetResolvedName to return the display name directly.
-    /// Without this, the original code calls EOS/Steam API → crash or "???".
+    /// Returns the display name directly, bypassing EOS/Steam API lookup.
     /// </summary>
     [HarmonyPatch(typeof(NetworkPlayerName), nameof(NetworkPlayerName.GetResolvedName))]
     public static class ResolveNamePatch

@@ -11,7 +11,7 @@ namespace RoR2DirectConnect
     {
         public const string PluginGUID = "com.ror2.directconnect";
         public const string PluginName = "RoR2DirectConnect";
-        public const string PluginVersion = "2.0.0";
+        public const string PluginVersion = "2.0.2";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -79,6 +79,7 @@ namespace RoR2DirectConnect
 
             // Auth & host bypass
             _harmony.PatchAll(typeof(Patches.PlatformAuthPatch));
+            _harmony.PatchAll(typeof(Patches.AddPlayerIdFromPlatformPatch));
             _harmony.PatchAll(typeof(Patches.PlatformHostPatch));
             _harmony.PatchAll(typeof(Patches.UpdateServerPatch));
 
