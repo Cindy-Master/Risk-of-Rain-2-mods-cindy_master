@@ -27,7 +27,18 @@ namespace RoR2DirectConnect.Patches
 
             authData.platformId = new RoR2.PlatformID(displayName);
             authData.authTicket = new byte[] { 0 };
-            authData.entitlements = Array.Empty<string>();
+
+            // Send real DLC entitlements so the server allows DLC characters.
+            // Empty entitlements → server forces Commando for DLC survivors.
+            try
+            {
+                authData.entitlements = RoR2.PlatformSystems.entitlementsSystem
+                    .BuildEntitlements();
+            }
+            catch
+            {
+                authData.entitlements = Array.Empty<string>();
+            }
 
             Plugin.Log.LogInfo($"Direct connect auth: name=\"{displayName}\"");
             return false;
