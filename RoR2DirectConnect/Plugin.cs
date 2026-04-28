@@ -11,7 +11,7 @@ namespace RoR2DirectConnect
     {
         public const string PluginGUID = "com.ror2.directconnect";
         public const string PluginName = "RoR2DirectConnect";
-        public const string PluginVersion = "2.0.2";
+        public const string PluginVersion = "2.0.3";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
