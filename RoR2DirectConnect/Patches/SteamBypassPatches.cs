@@ -218,37 +218,26 @@ namespace RoR2DirectConnect.Patches
     }
 
     /// <summary>
-    /// Replaces SteamworksLobbyManager.OnStopClient in direct-connect mode.
-    /// The original method calls client.Lobby.CurrentLobbyData.RemoveData()
-    /// which NullRefs without a real lobby session. But we MUST still call
-    /// LeaveLobby() — otherwise the real Steam lobby (created during menu
-    /// init) is never left, and the game detects the user is still in a
-    /// lobby → forces them back to the multiplayer menu on every "Back" click.
+    /// Lets the original OnStopClient run fully (important state cleanup),
+    /// but catches any NullRef from CurrentLobbyData.RemoveData().
+    ///
+    /// Previous approach (Prefix skip + manual LeaveLobby) broke the lobby
+    /// manager's internal state — after being a client, hosting would fail
+    /// because cleanup was incomplete. Finalizer is safer: the original does
+    /// ALL its cleanup, we just suppress the one NullRef that happens when
+    /// there's no real Steam lobby data.
     /// </summary>
     [HarmonyPatch(typeof(SteamworksLobbyManager), "OnStopClient")]
     public static class SteamLobbyOnStopClientPatch
     {
-        static bool Prefix()
+        static Exception Finalizer(Exception __exception)
         {
-            if (!Plugin.DirectConnectActive)
-                return true;
-
-            try
+            if (Plugin.DirectConnectActive && __exception != null)
             {
-                var lobbyMgr = PlatformSystems.lobbyManager;
-                if (lobbyMgr != null)
-                {
-                    AccessTools.Method(lobbyMgr.GetType(), "LeaveLobby")
-                        ?.Invoke(lobbyMgr, null);
-                }
+                Plugin.Log.LogInfo($"Suppressed OnStopClient error (direct connect): {__exception.GetType().Name}");
+                return null;
             }
-            catch (Exception ex)
-            {
-                Plugin.Log.LogWarning($"LeaveLobby failed: {ex.Message}");
-            }
-
-            Plugin.Log.LogInfo("Left Steam lobby, skipped rest of OnStopClient (direct connect).");
-            return false;
+            return __exception;
         }
     }
 
