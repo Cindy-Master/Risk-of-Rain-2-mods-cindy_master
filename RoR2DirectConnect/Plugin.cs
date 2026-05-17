@@ -11,7 +11,7 @@ namespace RoR2DirectConnect
     {
         public const string PluginGUID = "com.ror2.directconnect";
         public const string PluginName = "RoR2DirectConnect";
-        public const string PluginVersion = "2.0.4";
+        public const string PluginVersion = "2.0.5";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -104,6 +104,7 @@ namespace RoR2DirectConnect
             // Display name
             _harmony.PatchAll(typeof(Patches.DisplayNamePatch));
             _harmony.PatchAll(typeof(Patches.ResolveNamePatch));
+            _harmony.PatchAll(typeof(Patches.UpdateUserNamePatch));
 
             // Localization (must be before UI injection)
             RoR2.Language.onCurrentLanguageChanged += Localization.RegisterAll;

@@ -28,8 +28,6 @@ namespace RoR2DirectConnect.Patches
             authData.platformId = new RoR2.PlatformID(displayName);
             authData.authTicket = new byte[] { 0 };
 
-            // Send real DLC entitlements so the server allows DLC characters.
-            // Empty entitlements → server forces Commando for DLC survivors.
             try
             {
                 authData.entitlements = RoR2.PlatformSystems.entitlementsSystem
@@ -47,15 +45,7 @@ namespace RoR2DirectConnect.Patches
 
     /// <summary>
     /// Fixes AddPlayerIdFromPlatform to preserve string-based PlatformIDs.
-    ///
-    /// The original code does:
-    ///   NetworkUserId.FromId(platformID.ID, subId)
-    /// which ONLY keeps the ulong, discarding stringID entirely.
-    /// For PlatformID(string), ID=0, so the name is lost and value=0
-    /// causes PlatformID.get_value() to return null → Serialize NullRef.
-    ///
-    /// Fix: use new NetworkUserId(platformId, subId) which preserves
-    /// both ulong (Steam) and string (DC) PlatformIDs.
+    /// Original uses NetworkUserId.FromId(platformID.ID) which discards stringID.
     /// </summary>
     [HarmonyPatch(typeof(NetworkManagerSystemSteam), "AddPlayerIdFromPlatform")]
     public static class AddPlayerIdFromPlatformPatch
@@ -69,7 +59,6 @@ namespace RoR2DirectConnect.Patches
             ClientAuthData authData = ServerAuthManager.FindAuthData(conn);
             if (authData != null && authData.platformId != RoR2.PlatformID.nil)
             {
-                // Use the full constructor that preserves string PlatformIDs
                 __result = new NetworkUserId(authData.platformId, playerControllerId);
             }
             else

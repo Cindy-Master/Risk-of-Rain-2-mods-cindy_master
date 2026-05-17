@@ -4,10 +4,8 @@ using RoR2;
 namespace RoR2DirectConnect.Patches
 {
     /// <summary>
-    /// For local player only: override nameOverride with the freshest
-    /// config value (user may change nickname between sessions).
-    /// Remote players get their name from auth → NetworkUserId.strValue
-    /// → GetNetworkPlayerName().nameOverride automatically.
+    /// For local player: override nameOverride with config value.
+    /// For all DC players: ensure playerId is serialization-safe.
     /// </summary>
     [HarmonyPatch(typeof(NetworkUser), nameof(NetworkUser.GetNetworkPlayerName))]
     public static class DisplayNamePatch
@@ -24,9 +22,6 @@ namespace RoR2DirectConnect.Patches
                     __result.nameOverride = localName;
             }
 
-            // Safety: if nameOverride is set, ensure playerId is serialization-safe.
-            // Original code returns playerId = default(PlatformID) for string-mode IDs,
-            // whose stringID = null. PlatformID(0UL) has stringID = "" → safe.
             if (__result.nameOverride != null)
             {
                 __result = new NetworkPlayerName
@@ -39,7 +34,9 @@ namespace RoR2DirectConnect.Patches
     }
 
     /// <summary>
-    /// Returns the display name directly, bypassing EOS/Steam API lookup.
+    /// Patches GetResolvedName to return nameOverride directly.
+    /// Without this, the original calls EOSLobbyManager.GetUserDisplayNameFromProductIdString
+    /// which treats our display name as an EOS Product User ID → returns hex GUID.
     /// </summary>
     [HarmonyPatch(typeof(NetworkPlayerName), nameof(NetworkPlayerName.GetResolvedName))]
     public static class ResolveNamePatch
@@ -58,6 +55,33 @@ namespace RoR2DirectConnect.Patches
             ulong idVal = (ulong)__instance.playerId.value;
             __result = idVal != 0 ? "Player_" + (idVal % 10000) : "Player";
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Belt-and-suspenders: directly set NetworkUser.userName after UpdateUserName runs.
+    ///
+    /// UpdateUserName does: userName = GetNetworkPlayerName().GetResolvedName()
+    /// Our ResolveNamePatch should intercept GetResolvedName, but if it fails
+    /// (struct method patching edge case, timing issue, etc.), the original
+    /// GetResolvedName calls EOS lookup → returns hex GUID instead of the name.
+    ///
+    /// This Postfix guarantees userName is set from nameOverride directly,
+    /// bypassing the entire GetResolvedName → EOS chain.
+    /// </summary>
+    [HarmonyPatch(typeof(NetworkUser), "UpdateUserName")]
+    public static class UpdateUserNamePatch
+    {
+        static void Postfix(NetworkUser __instance)
+        {
+            if (!Plugin.DirectConnectActive)
+                return;
+
+            var playerName = __instance.GetNetworkPlayerName();
+            if (!string.IsNullOrEmpty(playerName.nameOverride))
+            {
+                __instance.userName = playerName.nameOverride;
+            }
         }
     }
 }
