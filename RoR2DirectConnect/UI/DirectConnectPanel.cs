@@ -177,6 +177,8 @@ namespace RoR2DirectConnect.UI
             { SetStatus("NetworkManager not ready.", Color.red); return; }
 
             Plugin.DirectConnectActive = true;
+            // Clear any stale Steam lobby state from a prior Steam multiplayer session.
+            Patches.CreateLobbyPatch.LeaveAnyExistingLobby();
             SaveNickname(_hostNicknameInput);
             SetConVar("sv_password", _hostPasswordInput?.text ?? "");
 
@@ -242,6 +244,9 @@ namespace RoR2DirectConnect.UI
             { SetStatus("Enter an address!", Color.red); EnsurePanelVisible(); return; }
 
             Plugin.DirectConnectActive = true;
+            // Clear any stale Steam lobby state from a prior Steam multiplayer
+            // session — prevents "cannot join Steam lobby" popups.
+            Patches.CreateLobbyPatch.LeaveAnyExistingLobby();
             SaveNickname(_joinNicknameInput);
             SetConVar("cl_password", _joinPasswordInput?.text ?? "");
 

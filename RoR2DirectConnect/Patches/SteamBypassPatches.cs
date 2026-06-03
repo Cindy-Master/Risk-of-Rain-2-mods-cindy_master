@@ -176,6 +176,40 @@ namespace RoR2DirectConnect.Patches
 
             Plugin.Log.LogInfo("Cleaned up fake lobby state.");
         }
+
+        /// <summary>
+        /// Leaves any real Steam lobby the user was in BEFORE starting direct
+        /// connect. Without this, if a user joins a Steam lobby first and then
+        /// switches to IP direct connect, the stale lobby + pending join state
+        /// triggers "EOS_CANNOT_JOIN_STEAM_LOBBY" popups. Also clears the
+        /// pendingSteamworksLobbyId so AttemptToJoinPendingSteamworksLobby
+        /// won't fire a late join.
+        /// </summary>
+        public static void LeaveAnyExistingLobby()
+        {
+            var lobbyMgr = PlatformSystems.lobbyManager;
+            if (lobbyMgr == null) return;
+
+            var actualType = lobbyMgr.GetType();
+            try
+            {
+                // Clear pending lobby join so it doesn't fire after we connect
+                var pendingProp = AccessTools.Property(actualType, "pendingSteamworksLobbyId");
+                pendingProp?.SetValue(lobbyMgr, default(RoR2.PlatformID));
+
+                // Clear awaiting flags
+                AccessTools.Property(typeof(LobbyManager), "awaitingJoin")
+                    ?.SetValue(lobbyMgr, false);
+                AccessTools.Property(typeof(LobbyManager), "awaitingCreate")
+                    ?.SetValue(lobbyMgr, false);
+
+                Plugin.Log.LogInfo("Cleared pending Steam lobby state before direct connect.");
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning($"LeaveAnyExistingLobby failed: {ex.Message}");
+            }
+        }
     }
 
     /// <summary>
@@ -197,8 +231,9 @@ namespace RoR2DirectConnect.Patches
     }
 
     /// <summary>
-    /// Safety net: if OnLobbyJoined fires with failure in DC mode,
-    /// suppress the "server full" popup dialog.
+    /// Safety net: if OnLobbyJoined(bool) fires with failure in DC mode,
+    /// suppress it. This is the single-arg overload that delegates to the
+    /// two-arg version.
     /// </summary>
     [HarmonyPatch(typeof(SteamworksLobbyManager), "OnLobbyJoined", new Type[] { typeof(bool) })]
     public static class OnLobbyJoinedPatch
@@ -214,6 +249,51 @@ namespace RoR2DirectConnect.Patches
                 return false;
             }
             return true;
+        }
+    }
+
+    /// <summary>
+    /// THE REAL FIX: the popup ("EOS_CANNOT_JOIN_STEAM_LOBBY_HEADER") is shown
+    /// by the TWO-ARG overload OnLobbyJoined(bool, string), NOT the single-arg.
+    ///
+    /// Paths that hit it directly, bypassing our single-arg patch:
+    ///   - JoinLobby(ConCommandArgs) on parse failure → OnLobbyJoined(false, "...")
+    ///   - Steam async callback after the user was in a real Steam lobby first
+    ///
+    /// In DC mode, suppress the failure popup + the steam_lobby_create_if_none
+    /// loop entirely. Let success through so the rare valid case still works.
+    /// </summary>
+    [HarmonyPatch(typeof(SteamworksLobbyManager), "OnLobbyJoined", new Type[] { typeof(bool), typeof(string) })]
+    public static class OnLobbyJoinedTwoArgPatch
+    {
+        static bool Prefix(bool success)
+        {
+            if (!Plugin.DirectConnectActive)
+                return true;
+
+            if (!success)
+            {
+                Plugin.Log.LogInfo("Suppressed lobby join failure popup (direct connect, 2-arg).");
+                return false;
+            }
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Belt-and-suspenders: block the popup creator itself in DC mode.
+    /// Some code paths call CreateCannotJoinSteamLobbyPopup() directly.
+    /// </summary>
+    [HarmonyPatch(typeof(SteamworksLobbyManager), "CreateCannotJoinSteamLobbyPopup")]
+    public static class CannotJoinPopupPatch
+    {
+        static bool Prefix()
+        {
+            if (!Plugin.DirectConnectActive)
+                return true;
+
+            Plugin.Log.LogInfo("Suppressed CreateCannotJoinSteamLobbyPopup (direct connect).");
+            return false;
         }
     }
 

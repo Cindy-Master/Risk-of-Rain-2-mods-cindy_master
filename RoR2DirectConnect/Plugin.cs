@@ -11,7 +11,7 @@ namespace RoR2DirectConnect
     {
         public const string PluginGUID = "com.ror2.directconnect";
         public const string PluginName = "RoR2DirectConnect";
-        public const string PluginVersion = "2.0.5";
+        public const string PluginVersion = "2.0.6";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
@@ -91,6 +91,8 @@ namespace RoR2DirectConnect
             _harmony.PatchAll(typeof(Patches.CreateLobbyPatch));
             _harmony.PatchAll(typeof(Patches.JoinLobbyPatch));
             _harmony.PatchAll(typeof(Patches.OnLobbyJoinedPatch));
+            _harmony.PatchAll(typeof(Patches.OnLobbyJoinedTwoArgPatch));
+            _harmony.PatchAll(typeof(Patches.CannotJoinPopupPatch));
             _harmony.PatchAll(typeof(Patches.IsInLobbyPatch));
             _harmony.PatchAll(typeof(Patches.OwnsLobbyPatch));
             _harmony.PatchAll(typeof(Patches.SteamLobbyOnStopClientPatch));
