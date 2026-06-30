@@ -43,17 +43,43 @@ namespace RoR2DirectConnect.Patches
     {
         static bool Prefix(ref NetworkPlayerName __instance, ref string __result)
         {
-            if (!Plugin.DirectConnectActive)
-                return true;
+            object val = __instance.playerId.value;
 
+            if (!Plugin.DirectConnectActive)
+            {
+                // Not in DC mode: only intervene to prevent a hard crash.
+                // The original GetResolvedName does (ulong)playerId.value style
+                // access and throws on a nil PlatformID (value == null). This
+                // happens after OnStopHost resets the flag while UI still renders
+                // our leftover names → NullRef → black screen.
+                if (val == null)
+                {
+                    __result = !string.IsNullOrEmpty(__instance.nameOverride)
+                        ? __instance.nameOverride : "Player";
+                    return false;
+                }
+                return true; // real Steam/EOS id — let original handle it
+            }
+
+            // DC mode: our display name lives in nameOverride.
             if (!string.IsNullOrEmpty(__instance.nameOverride))
             {
                 __result = __instance.nameOverride;
                 return false;
             }
 
-            ulong idVal = (ulong)__instance.playerId.value;
-            __result = idVal != 0 ? "Player_" + (idVal % 10000) : "Player";
+            if (val is ulong)
+            {
+                ulong idVal = (ulong)val;
+                __result = idVal != 0 ? "Player_" + (idVal % 10000) : "Player";
+                return false;
+            }
+            if (val is string && !string.IsNullOrEmpty((string)val))
+            {
+                __result = (string)val;
+                return false;
+            }
+            __result = "Player";
             return false;
         }
     }
