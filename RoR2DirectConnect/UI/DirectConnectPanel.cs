@@ -259,13 +259,7 @@ namespace RoR2DirectConnect.UI
             Patches.CreateLobbyPatch.FakeLobbyState();
 
             string port = _joinPortInput?.text ?? "7777";
-            string cs;
-            if (addr.Contains(":") && !addr.StartsWith("["))
-                cs = $"[{addr}]:{port}";
-            else if (addr.StartsWith("["))
-                cs = addr.Contains("]:") ? addr : $"{addr.TrimEnd(']')}]:{port}";
-            else
-                cs = $"{addr}:{port}";
+            string cs = BuildConnectString(addr, port);
 
             AddressPortPair pair;
             if (!AddressPortPair.TryParse(cs, out pair) || !pair.isValid)
@@ -335,6 +329,37 @@ namespace RoR2DirectConnect.UI
         {
             if (menuController != null)
                 MenuInjector.ShowPanel(menuController);
+        }
+
+        /// <summary>
+        /// Builds an "address:port" string the game's AddressPortPair parser
+        /// accepts, correctly distinguishing IPv4:port from bare IPv6.
+        ///
+        /// Cases:
+        ///   [ipv6]:port  or  [ipv6]   → already bracketed, keep / append port
+        ///   1.2.3.4:22358            → IPv4 already has a port → use it as-is
+        ///   1.2.3.4                  → IPv4, append port field
+        ///   ::1 / 2001:db8::1        → bare IPv6 (>=2 colons) → wrap [ ]:port
+        /// </summary>
+        private static string BuildConnectString(string addr, string port)
+        {
+            // Already bracketed IPv6
+            if (addr.StartsWith("["))
+                return addr.Contains("]:") ? addr : $"{addr}:{port}";
+
+            int colons = 0;
+            foreach (char c in addr) if (c == ':') colons++;
+
+            // Bare IPv6 (multiple colons, no brackets) → wrap and add port
+            if (colons >= 2)
+                return $"[{addr}]:{port}";
+
+            // Exactly one colon = IPv4:port already embedded → use as-is
+            if (colons == 1)
+                return addr;
+
+            // No colon = plain IPv4 / hostname → append port field
+            return $"{addr}:{port}";
         }
 
         private static void SetConVar(string n, string v)
