@@ -181,6 +181,9 @@ namespace RoR2DirectConnect.UI
             Patches.CreateLobbyPatch.LeaveAnyExistingLobby();
             SaveNickname(_hostNicknameInput);
             SetConVar("sv_password", _hostPasswordInput?.text ?? "");
+            // Always host on the default port. A prior client connection may have
+            // left sv_port set to a remote target port (e.g. 13154).
+            SetConVar("sv_port", "7777");
 
             int maxPlayers = 4;
             if (_hostMaxPlayersInput != null)
@@ -304,10 +307,55 @@ namespace RoR2DirectConnect.UI
             Plugin.DirectConnectActive = false;
             Patches.CreateLobbyPatch.CleanupFakeLobbyState();
 
+            // Stop any half-open client so the game returns cleanly to the menu
+            // instead of sitting on a black loading screen.
+            try { NetworkManagerSystem.singleton?.StopClient(); } catch { }
+
+            // Restore the listen port. When connecting as a client, the game
+            // sets networkPort/sv_port to the TARGET port (e.g. 13154). If we
+            // don't restore it, a later self-host would wrongly listen on that
+            // leftover port instead of the default 7777.
+            SetConVar("sv_port", "7777");
+
             if (menuController != null)
                 MenuInjector.ShowPanel(menuController);
 
-            SetStatus($"Connection failed: {pair.address}:{pair.port}", Color.red);
+            SetStatus("连接失败 / Connection failed", Color.red);
+            ShowErrorDialog($"连接失败 (Connection Failed)",
+                $"无法连接到 {pair.address}:{pair.port}\n\n" +
+                $"Could not connect. Check that:\n" +
+                $"- 主机已创建房间 (host has created a room)\n" +
+                $"- IP/端口正确 (IP/port is correct)\n" +
+                $"- 端口转发为 UDP (port forward uses UDP)");
+        }
+
+        /// <summary>
+        /// Shows a native RoR2 dialog box so the user clearly sees the failure
+        /// instead of being left on a black screen wondering what happened.
+        /// SimpleDialogBox resolves tokens via Language; unregistered tokens are
+        /// displayed verbatim, so passing raw text works fine.
+        /// </summary>
+        private static void ShowErrorDialog(string title, string body)
+        {
+            try
+            {
+                var box = SimpleDialogBox.Create(null);
+                box.AddCancelButton(CommonLanguageTokens.ok, Array.Empty<object>());
+                box.headerToken = new SimpleDialogBox.TokenParamsPair
+                {
+                    token = title,
+                    formatParams = Array.Empty<object>()
+                };
+                box.descriptionToken = new SimpleDialogBox.TokenParamsPair
+                {
+                    token = body,
+                    formatParams = Array.Empty<object>()
+                };
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log.LogWarning($"ShowErrorDialog failed: {ex.Message}");
+            }
         }
 
         private void SaveNickname(TMP_InputField nicknameInput)

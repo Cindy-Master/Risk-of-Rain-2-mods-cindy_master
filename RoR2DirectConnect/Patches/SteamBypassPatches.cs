@@ -419,6 +419,9 @@ namespace RoR2DirectConnect.Patches
             {
                 Plugin.DirectConnectActive = false;
                 CreateLobbyPatch.CleanupFakeLobbyState();
+                // Restore listen port — a client connection sets sv_port to the
+                // remote target port; leave it and a later host binds wrong.
+                try { RoR2.Console.instance?.SubmitCmd(null, "sv_port 7777"); } catch { }
                 Plugin.Log.LogInfo("DirectConnectActive reset (OnStopClient).");
             }
         }
