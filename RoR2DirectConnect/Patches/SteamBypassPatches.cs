@@ -417,6 +417,7 @@ namespace RoR2DirectConnect.Patches
         {
             if (Plugin.DirectConnectActive)
             {
+                DirectConnectIdentity.Clear();
                 Plugin.DirectConnectActive = false;
                 CreateLobbyPatch.CleanupFakeLobbyState();
                 // Restore listen port — a client connection sets sv_port to the
@@ -438,6 +439,7 @@ namespace RoR2DirectConnect.Patches
         {
             if (Plugin.DirectConnectActive)
             {
+                DirectConnectIdentity.Clear();
                 Plugin.DirectConnectActive = false;
                 CreateLobbyPatch.CleanupFakeLobbyState();
                 Plugin.Log.LogInfo("DirectConnectActive reset (OnStopHost).");

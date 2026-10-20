@@ -31,6 +31,13 @@ namespace RoR2DirectConnect.Patches
                 return;
             }
 
+            string unsupportedReason;
+            if (!DirectConnectIdentity.IsSupportedNetworkMode(out unsupportedReason))
+            {
+                Debug.LogError("[DirectConnect] " + unsupportedReason);
+                return;
+            }
+
             AddressPortPair pair;
             if (!AddressPortPair.TryParse(target, out pair) || !pair.isValid)
             {
@@ -41,6 +48,8 @@ namespace RoR2DirectConnect.Patches
             }
 
             Plugin.DirectConnectActive = true;
+            CreateLobbyPatch.LeaveAnyExistingLobby();
+            CreateLobbyPatch.FakeLobbyState();
             AccessTools.Method(typeof(NetworkManagerSystem), "EnsureNetworkManagerNotBusy")
                 .Invoke(null, null);
             NetworkManagerSystem.singleton.desiredHost = new HostDescription(pair);
@@ -55,6 +64,13 @@ namespace RoR2DirectConnect.Patches
             if (!NetworkManagerSystem.singleton)
             {
                 Debug.Log("[DirectConnect] NetworkManager not ready.");
+                return;
+            }
+
+            string unsupportedReason;
+            if (!DirectConnectIdentity.IsSupportedNetworkMode(out unsupportedReason))
+            {
+                Debug.LogError("[DirectConnect] " + unsupportedReason);
                 return;
             }
 
@@ -73,6 +89,8 @@ namespace RoR2DirectConnect.Patches
             }
 
             Plugin.DirectConnectActive = true;
+            CreateLobbyPatch.LeaveAnyExistingLobby();
+            CreateLobbyPatch.FakeLobbyState();
             NetworkManagerSystem.singleton.desiredHost = new HostDescription(
                 new HostDescription.HostingParameters
                 {
@@ -86,7 +104,7 @@ namespace RoR2DirectConnect.Patches
         }
 
         [ConCommand(commandName = "dc_id", flags = ConVarFlags.None,
-            helpText = "Get or set your PlatformID. Usage: dc_id [newid]")]
+            helpText = "Get or set the persistent direct-connect ID. Do not share an ID between players.")]
         private static void CCDirectId(ConCommandArgs args)
         {
             if (args.Count > 0)

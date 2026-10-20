@@ -11,12 +11,13 @@ namespace RoR2DirectConnect
     {
         public const string PluginGUID = "com.ror2.directconnect";
         public const string PluginName = "RoR2DirectConnect";
-        public const string PluginVersion = "2.0.9";
+        public const string PluginVersion = "2.1.0";
 
         public static Plugin Instance { get; private set; }
         public static ManualLogSource Log { get; private set; }
 
         public static ConfigEntry<string> ConfigPlatformId;
+        public static ConfigEntry<int> ConfigIdentitySchemaVersion;
         public static ConfigEntry<string> ConfigDisplayName;
         public static ConfigEntry<bool> ConfigBypassSteamAuth;
         public static ConfigEntry<bool> ConfigBypassLobbyCheck;
@@ -42,8 +43,13 @@ namespace RoR2DirectConnect
             Log = Logger;
 
             ConfigPlatformId = Config.Bind(
-                "General", "PlatformId", "76561198000000000",
-                "Custom Platform ID for direct connect. Each player must use a unique ID."
+                "General", "PlatformId", "",
+                "Persistent unique ID for direct connect. Generated automatically; do not copy it between players."
+            );
+
+            ConfigIdentitySchemaVersion = Config.Bind(
+                "General", "IdentitySchemaVersion", 0,
+                "Internal identity migration version. Do not edit manually."
             );
 
             ConfigDisplayName = Config.Bind(
@@ -71,6 +77,9 @@ namespace RoR2DirectConnect
                 "Last used host password.");
             ConfigLastClientPassword = Config.Bind("SavedUI", "LastClientPassword", "",
                 "Last used client password.");
+
+            // 自动迁移旧版所有安装共用的默认 ID，保证每台客户端身份唯一。
+            DirectConnectIdentity.GetOrCreatePlatformId();
 
             _harmony = new Harmony(PluginGUID);
 
@@ -121,11 +130,14 @@ namespace RoR2DirectConnect
             // Keep IMGUI as F6 fallback overlay
             gameObject.AddComponent<DirectConnectUI>();
 
-            Log.LogInfo("RoR2DirectConnect v2.0 loaded! Native UI injected into Multiplayer menu.");
+            Log.LogInfo(
+                $"RoR2DirectConnect v{PluginVersion} loaded. " +
+                $"Network manager: {PlatformSystems.networkManager?.GetType().FullName ?? "not initialized"}.");
         }
 
         private void OnDestroy()
         {
+            DirectConnectIdentity.Clear();
             _harmony?.UnpatchSelf();
         }
     }

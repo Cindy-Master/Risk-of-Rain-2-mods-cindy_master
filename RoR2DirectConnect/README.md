@@ -1,68 +1,33 @@
 # RoR2DirectConnect
 
-BepInEx 插件，为 Risk of Rain 2 提供 IP 直连多人游戏功能，完全绕过 Steam 网络。
+Risk of Rain 2 的 IP 直连插件，可绕过 Steam 大厅和 P2P，通过 IPv4/IPv6 地址创建或加入游戏。
 
-## 功能
+## 2.1.0 兼容性更新
 
-- **IP 直连** — 通过 IP 地址创建/加入游戏（支持 IPv4 和 IPv6）
-- **完整 Steam 绕过** — 无需 Steam 认证、大厅或 P2P
-- **原生 UI** — 集成到多人游戏菜单（另有 F6 IMGUI 备用界面）
-- **自定义昵称** — 无需 Steam 即可设置游戏内显示名称
-- **设置保存** — IP、端口、昵称等在会话之间保持
-- **无侵入** — 不使用直连时，正常游戏模式完全不受影响
-
-## 安装
-
-1. 通过 r2modman 安装 [BepInEx 5](https://thunderstore.io/package/bbepis/BepInExPack/)和[RoR2DirectConnect](https://thunderstore.io/package/Cindy_Master/RoR2DirectConnect/)
-2. 启动游戏
+- 修复“你的账号已经在尝试连接的服务器中使用”。
+- 修复客户端选角不同步、进入游戏变成无人机、只有房主能控制角色的问题。
+- 网络身份与显示昵称完全分离；同名玩家也可以正常联机。
+- 自动迁移旧版共享 ID 和昵称派生 ID，无需手工删除配置。
+- 新增昵称同步消息和玩家身份诊断日志。
+- 检测 EOS/跨平台模式并给出明确提示，避免进入不可操作的半连接状态。
+- 修复 F6 备用界面没有真正启用直连补丁的问题。
 
 ## 使用方法
 
-### 创建房间
-1. 进入 **多人游戏** 菜单
-2. 点击 **IP Direct Connect**
-3. 设置昵称和最大玩家数
-4. 点击 **Host Game**
-5. 将你的 IP 分享给好友（默认端口：7777）
+1. 房主和客户端安装完全相同的游戏版本、BepInEx 和本插件。
+2. 在游戏设置中关闭跨平台联机；也可以添加启动参数 `--disableCrossplay`。
+3. 进入多人游戏，选择 **IP Direct Connect**。
+4. 房主点击 **Host Game**；客户端输入房主地址和端口后点击 **Connect**。
 
-### 加入房间
-1. 进入 **多人游戏** 菜单
-2. 点击 **IP Direct Connect**
-3. 输入主机的 IP 地址和端口
-4. 点击 **Connect**
+默认使用 UDP 端口 `7777`。两端可以使用相同昵称，但不要手工复制 `PlatformId` 配置。
 
-### 控制台命令
-- `dc_host` — 快速创建直连服务器
-- `dc_connect ip:port` — 通过命令行连接
-- `dc_status` — 查看当前连接状态
+## 控制台命令
 
-## 从源码构建
+- `dc_host [maxplayers]`：创建直连房间。
+- `dc_connect ip:port`：连接 IPv4/IPv6 地址。
+- `dc_id [newid]`：查看或设置高级身份 ID；通常无需使用。
+- `dc_status`：显示当前直连状态。
 
-```bash
-dotnet build -c Release
-# 输出: bin/Release/netstandard2.1/RoR2DirectConnect.dll
-```
+## 已知限制
 
-**依赖**（在 .csproj 中引用，未包含在仓库中）：
-- RoR2 游戏程序集（`Risk of Rain 2_Data/Managed/`）
-- BepInEx 程序集
-
-## 文件结构
-
-```
-RoR2DirectConnect.dll        # 编译好的插件
-Plugin.cs                    # 入口点，Harmony 补丁注册
-DirectConnectUI.cs           # F6 IMGUI 备用界面
-Localization.cs              # 多语言 UI 字符串（11 种语言）
-RoR2DirectConnect.csproj     # 构建配置
-Patches/
-  SteamBypassPatches.cs      # 核心 Steam 绕过（大厅、P2P、认证、服务器）
-  PlatformAuthPatch.cs       # 直连认证自定义 PlatformID
-  PlatformHostPatch.cs       # 主机命令绕过
-  DisplayNamePatch.cs        # 显示名称注入
-  AddressPortPairPatch.cs    # IPv6 地址解析支持
-  DirectConnectCommands.cs   # 控制台命令
-UI/
-  MenuInjector.cs            # 原生菜单按钮和面板注入
-  DirectConnectPanel.cs      # 直连面板 UI
-```
+2.1.0 暂不支持 EOS/跨平台网络管理器。开启跨平台时插件会阻止直连并提示关闭，避免产生账号为空、选角不同步或角色无控制权的问题。
