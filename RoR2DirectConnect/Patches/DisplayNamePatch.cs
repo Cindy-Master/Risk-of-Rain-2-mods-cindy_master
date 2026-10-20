@@ -4,8 +4,7 @@ using RoR2;
 namespace RoR2DirectConnect.Patches
 {
     /// <summary>
-    /// For local player: override nameOverride with config value.
-    /// For all DC players: ensure playerId is serialization-safe.
+    /// 从独立昵称表解析显示名，不再把昵称作为账号身份使用。
     /// </summary>
     [HarmonyPatch(typeof(NetworkUser), nameof(NetworkUser.GetNetworkPlayerName))]
     public static class DisplayNamePatch
@@ -15,21 +14,19 @@ namespace RoR2DirectConnect.Patches
             if (!Plugin.DirectConnectActive)
                 return;
 
-            if (__instance.isLocalPlayer)
+            string displayName;
+            if (DirectConnectIdentity.TryGetDisplayName(__instance.id, out displayName))
             {
-                string localName = Plugin.ConfigDisplayName.Value;
-                if (!string.IsNullOrEmpty(localName))
-                    __result.nameOverride = localName;
+                __result.nameOverride = displayName;
+            }
+            else if (__instance.isLocalPlayer)
+            {
+                __result.nameOverride = DirectConnectIdentity.GetLocalDisplayName(__instance.id.value);
             }
 
-            if (__result.nameOverride != null)
-            {
-                __result = new NetworkPlayerName
-                {
-                    nameOverride = __result.nameOverride,
-                    playerId = new PlatformID(0UL)
-                };
-            }
+            // nameOverride 存在时原版序列化只写昵称，因此显式清空显示层 playerId。
+            if (!string.IsNullOrEmpty(__result.nameOverride))
+                __result.playerId = PlatformID.nil;
         }
     }
 

@@ -176,6 +176,15 @@ namespace RoR2DirectConnect.UI
             if (!NetworkManagerSystem.singleton)
             { SetStatus("NetworkManager not ready.", Color.red); return; }
 
+            string unsupportedReason;
+            if (!DirectConnectIdentity.IsSupportedNetworkMode(out unsupportedReason))
+            {
+                SetStatus(unsupportedReason, Color.red);
+                ShowErrorDialog("IP 直连模式不受支持", unsupportedReason);
+                EnsurePanelVisible();
+                return;
+            }
+
             Plugin.DirectConnectActive = true;
             // Clear any stale Steam lobby state from a prior Steam multiplayer session.
             Patches.CreateLobbyPatch.LeaveAnyExistingLobby();
@@ -241,6 +250,15 @@ namespace RoR2DirectConnect.UI
         {
             if (!NetworkManagerSystem.singleton)
             { SetStatus("NetworkManager not ready.", Color.red); EnsurePanelVisible(); return; }
+
+            string unsupportedReason;
+            if (!DirectConnectIdentity.IsSupportedNetworkMode(out unsupportedReason))
+            {
+                SetStatus(unsupportedReason, Color.red);
+                ShowErrorDialog("IP 直连模式不受支持", unsupportedReason);
+                EnsurePanelVisible();
+                return;
+            }
 
             string addr = _joinAddressInput?.text?.Trim() ?? "";
             if (string.IsNullOrEmpty(addr))
@@ -363,8 +381,6 @@ namespace RoR2DirectConnect.UI
             string nick = nicknameInput?.text ?? "";
             if (string.IsNullOrEmpty(nick)) return;
             Plugin.ConfigDisplayName.Value = nick;
-            ulong id = (ulong)(nick.GetHashCode() & 0x7FFFFFFF) + 76561198000000000UL;
-            Plugin.ConfigPlatformId.Value = id.ToString();
         }
 
         private void SetStatus(string msg, Color c)

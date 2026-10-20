@@ -496,11 +496,23 @@ namespace RoR2DirectConnect
             if (!NetworkManagerSystem.singleton) { SetStatus("NetworkManager not ready.", Color.red); return; }
             if (NetworkServer.active) { SetStatus("Server already running.", Color.yellow); return; }
 
+            string unsupportedReason;
+            if (!DirectConnectIdentity.IsSupportedNetworkMode(out unsupportedReason))
+            {
+                SetStatus(unsupportedReason, Color.red);
+                return;
+            }
+
             int max; if (!int.TryParse(_maxPlayers, out max) || max < 1 || max > 16) max = 4;
 
             if (!string.IsNullOrEmpty(_platformId)) Plugin.ConfigPlatformId.Value = _platformId;
+            _platformId = DirectConnectIdentity.GetOrCreatePlatformId().ToString();
             SetConVar("sv_password", _serverPassword);
             ushort port; if (ushort.TryParse(_hostPort, out port)) SetConVar("sv_port", port.ToString());
+
+            Plugin.DirectConnectActive = true;
+            Patches.CreateLobbyPatch.LeaveAnyExistingLobby();
+            Patches.CreateLobbyPatch.FakeLobbyState();
 
             NetworkManagerSystem.singleton.desiredHost = new HostDescription(
                 new HostDescription.HostingParameters { listen = true, maxPlayers = max });
@@ -513,10 +525,18 @@ namespace RoR2DirectConnect
         {
             if (!NetworkManagerSystem.singleton) { SetStatus("NetworkManager not ready.", Color.red); return; }
 
+            string unsupportedReason;
+            if (!DirectConnectIdentity.IsSupportedNetworkMode(out unsupportedReason))
+            {
+                SetStatus(unsupportedReason, Color.red);
+                return;
+            }
+
             string addr = _connectAddress.Trim();
             if (string.IsNullOrEmpty(addr)) { SetStatus("Enter an address.", Color.red); return; }
 
             if (!string.IsNullOrEmpty(_platformId)) Plugin.ConfigPlatformId.Value = _platformId;
+            _platformId = DirectConnectIdentity.GetOrCreatePlatformId().ToString();
             SetConVar("cl_password", _clientPassword);
 
             string cs;
@@ -530,6 +550,10 @@ namespace RoR2DirectConnect
             AddressPortPair pair;
             if (!AddressPortPair.TryParse(cs, out pair) || !pair.isValid)
             { SetStatus($"Cannot parse: {cs}", Color.red); return; }
+
+            Plugin.DirectConnectActive = true;
+            Patches.CreateLobbyPatch.LeaveAnyExistingLobby();
+            Patches.CreateLobbyPatch.FakeLobbyState();
 
             // Save to recent
             string entry = $"{addr}:{_connectPort}";
